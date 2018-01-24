@@ -1,0 +1,591 @@
+COEN313
+
+Mode: 
+in: into ckt
+out: out of ckt
+inout: bi-directional
+
+VHDL Library
+Store design units like entity
+default library: "work"
+
+Architecture:
+
+1Analysis
+2-Elaboration (bind arch body entity)
+3-Execution
+
+LEXICAL ELEMENTS
+-comments - start with '--'
+-identifiers - alpha-numeric characters, 1st char must be letter, last char must not be '_'
+-reserved words
+-char - 'A', '1' 
+-numbers - integers, decimals, other bases (2#101101#)
+-strings - "Hello"
+
+**VHDL is Case Insensitive**
+
+Signals:
+signal sig_name1, sig_name2: data_type
+Signal Assignment:
+
+CONSTANT: 
+constant CONST_NAME: data_type:=value_expression
+Good practice to set BUS_WIDTH = constant
+
+Avoid 'hard literals' 
+
+DATA TYPES
+-set of values and operations that can be performed with object (no cross type-assignments)
+-INT: (natural/positive)
+-BOOLEAN: (false/true)
+-BIT: (0/1)
+-BIT-VECTOR
+-std_logic, std_logic_vector  --> no way to show tri-state of high-impedance values "X" marks errors
+
+MULTI-VAL TYPES
+-uninitilized 'U'
+-unknown 'X'
+-high impedance 'Z'
+-weak unknown 'W' 
+-weak 0/1 'L'/'H' 
+-Don't care '-'
+-Logical 0/1 '0'/'1'
+
+
+=====LAB#1======
+1-Setup linux acount '>' -> means from linux prompt cmd
+> source /CMC/ENVIRONMENT/modelsim.env  (needed every time new terminal)
+
+2- Create Modelsim dir -> Modelsim/Code -> vlib (work dir)
+/home/m/login_name/Modelsim/Code/my_file.vhd
+/home/m/login_name/Modelsim/Code/work
+>cd
+>mkdir Modelsim
+>cd Modelsim
+>mkdir Code
+>cd Code
+>vlib work
+
+3- VHDL Simulation with Modelsim
+Use text editor to create and same file 'and2.vhd' with contents:
+
+	entity and2_gate is
+	port( in_1, in_2: in bit;
+	output : out bit);
+	end;
+	architecture example of and2_gate is
+	begin
+	output <= in_1 and in_2;
+	end;
+	
+4-Compile VHDL and2.vhd using vcom 
+>cd/Code
+>vcom and2.vhd
+>cd work
+>ls -al
+
+5-Simulate VHDL Model
+>vsim and2_gate &    (and2_gate file that was compiled into work)
+Simulation commands in transcript window 'Object windows'
+Before Simulation commands, add any signals to display to Waveform window
+Go to Objecys Window and 'Add choice' add-->To Wave-->Signals in Region
+Manually assign values to signal using 'force' command from Sim Window
+>force in_1 0    (set inputs to different possible values)
+>force in_2 0
+>run			(Add #timesteps to skip ie: run3)
+
+6- Printout
+Select file -> Print Postscript
+print command: lp -d 1p1
+File name: and2_gate.ps
+to Print:
+>1pr -Pprinter_name file_name
+=======
+
+Example 2 - Simulating 2 input and gate (using DO file)
+
+1-create subdir 'DO' within Modelsim dir and create 'and2.do' text file
+>add wave in_1
+>add wave in_2
+>add wave output
+>force in_1 0
+>force in_2 0
+>run 2
+>force in_1 0
+>force in_2 1
+>run 2
+>force in_1 1
+>force in_2 0
+>run 2
+>force in_1 1
+>force in_2 0   (1??)
+>run 2
+
+2- Invoke Simulator (read and execute DO file)
+
+>vsim -do ../DO/and2.do and2_gate &
+OR
+>vsim and2_gate & do ../DO/and2.do		(load design into simulator)
+====
+Example 3 - Simulating with multiple VHDL source code files
+Create top-level marc_and and two bottom-level entity-arch pairs for ANR/OR
+
+1- Create marc_and.vhd and save in Code dir
+entity marc_and is
+port(A,B : in BIT; OUTPUT : out BIT);
+end marc_and;
+architecture marc_arch of marc_and is
+begin
+OUTPUT <= A and B after 5 ns;
+end marc_arch;
+
+2- Create marcor.vhd
+entity marc_or is
+port(A,B :in BIT; OUTPUT : out BIT);
+end marc_or;
+
+architecture marc_arch of marc_or is 
+begin 
+OUTPUT <= A or B;
+end marc_arch;
+
+3- Create marccircuit.vhd   (top-level entity)
+>entity marccircuit is 
+>port(A,B,C,D: in BIT; E : out BIT);
+
+>architecture marc_arch of marccircuit is
+
+>component marc_and
+>port(A,B : in BIT; out BIT);
+>end component;
+>component marc_or
+>port(A,B : in BIT; out bit);
+>end component;
+>--Delare signals to interconnect components
+>signal s1, s2 : BIT;
+>--Declare configuration specs
+>for U1, U3 : marc_and use entity WORK.marc_and(marc_arch);
+>for U2: marc_or use entit WORK.marc_or(marc_arch);
+>begin
+>U1 : marc_and port map(A => A , B => B , OUTPUT => s1 );
+>U2 : marc_or port map(A => C, B => D, OUTPUT => s2 );
+>U3 : marc_and port map(A => s1, B => s2, OUTPUT => E);
+>end marc_arch;
+
+The two marcand.vhd and marcor.vhd should be precompiled
+
+4- Create DO file called marccircuit.do and save it to DO dir
+# add all the signals to the wave window
+add wave *
+# setup some input values and run the simulator (#COMMENTS)
+force a 0
+force b 013
+force c 0
+force d 0
+run 2
+force a 0
+force b 1
+force c 0
+force d 1
+run 2
+force a 1
+force b 1
+force c 0
+force d 1
+run 2
+force a 1
+force b 1
+force c 1
+force d 1
+run 2
+
+===EXAMPLE 4: Specifying repeat signals (with DO files)
+1- Create VHDL code4 in Code dir
+	library ieee;
+	use ieee.std_logic_1164.all;
+	use ieee.std_logic_unsigned.all;
+	entity count3 is
+	port( clk, resetn, count_en : in std_logic;
+	sum : out std_logic_vector(2 downto 0);
+	cout : out std_logic);
+	end count3;15
+	architecture rtl of count3 is
+	signal count : std_logic_vector(2 downto 0);
+	begin
+	process(clk, resetn)
+	begin
+	if resetn = ’0’ then
+	count <= (others => ’0’);
+	elsif clk’event and clk = ’1’ then
+	if count_en = ’1’ then
+	count <= count + 1;
+	end if;
+	end if;
+	end process;
+	sum <= not count; -- invert the outputs for the demo board
+	-- since its LEDs are active low
+	cout <= ’0’ when count = 7 and count_en = ’1’ else ’1’;
+	end rtl;
+	
+2(a)- Brute force DO file
+Create DO file in Do dir called count3.do
+	add wave *
+	# apply a reset to the counter
+	force resetn 0
+	force clk 0
+	force count_en 1
+	run 2
+	# unassert the reset signal and clock
+	# for several cycles
+	force resetn 1
+	run 2
+	force clk 116
+	run 2
+	force clk 0
+	run 2
+	force clk 1
+	run 2
+	force clk 0
+	run 2
+	force clk 1
+	run 2
+	force clk 0
+	run 2
+	force clk 1
+	run 2
+	force clk 0
+	run 2
+	force clk 1
+	run 2
+	force clk 0
+	run 2
+	force clk 1
+	run 2
+	force clk 0
+	run 2
+	force clk 1
+	run 2
+	force clk 0
+	run 2
+	force clk 1
+	run 2
+	force clk 0
+	run 2
+	force clk 1
+	run 2
+	force clk 0
+	run 2
+DO file sets a reset pulse and applies 9 clock pulses in repetition
+
+2(b)- DO file that uses another DO file
+Create 2 DO files called clock.do and count3b.do 
+clock.do:
+	force clk 1
+	run 2
+	force clk 0
+	run 2
+count3b.do:
+	# This .do file reads in another .do file which
+	# toggles the clock signal for 9 cycles
+	# add all signals to the Waveform window
+	add wave *
+	# apply a reset to the counter
+	force resetn 0
+	force clk 0
+	force count_en 1
+	run 2
+	# unassert the reset signal and clock
+	# for several cycles
+	force resetn 1
+	run 2
+	do clock.do
+	do clock.do
+	do clock.do
+	do clock.do
+	do clock.do
+	do clock.do
+	do clock.do
+	do clock.do
+	do clock.do
+	
+3- Simultate the design
+>vsim -do ../DO/count3b.do count3 &
+
+With a force command with repeat, create count3b.do
+	# This is a comment line in a .do file
+	# add all signals to the Waveform window
+	add wave *
+	# apply a reset to the counter
+	force resetn 0
+	force clk 0
+	force count_en 1
+	run 2
+	# unassert the reset signal and clock
+	# for several cycles
+	force resetn 1
+	run 2
+	force clk 1 2 -r 4
+	force clk 0 4 -r 4
+	# run for 9 clock periods
+	# 9 clock periods x 4 timesteps per period
+	# = 36 timesteps
+	run 36
+Using force command: >force sig_name sig_val start_time -r repeat_time
+
+=====================LOGIC SYNTHESIS WITH PRECISION RTL===========
+(I) PERFORMING LOGIC SYNTHESIS
+-Need to create 'FPGA_ADV' in 'Modelsim'
+*note: FPGA board LED's are ACTIVE-LOW*
+(i)Create half_addr_regular_outputs.vhd with contents:
+	ibrary ieee;
+	use ieee.std_logic_1164.all;
+	entity half_adder is
+	port ( in1, in2 : in std_logic;
+	carry, sum : out std_logic);
+	end half_adder;
+	architecture true_outputs of half_adder is
+	begin
+	carry <= (in1 and in2);21
+	sum <= (in1 xor in2);
+	end true_outputs;
+(ii) mkdir full_addr_negated_outputs.vhd
+	library ieee;
+	use ieee.std_logic_1164.all;
+	entity full_adder_negated is
+	port(carry_in, input1, input2 : in std_logic;
+	sum_out_neg, carry_out_neg : out std_logic);
+	end full_adder_negated;
+	architecture structural of full_adder_negated is
+	-- declare a half-adder component
+	component half_adder
+	port ( in1, in2 : in std_logic;
+	carry, sum : out std_logic);
+	end component;
+	-- declare internal signals used to "hook up" components
+	signal carry1, carry2 : std_logic;
+	signal sum_int : std_logic;
+	signal sum_out, carry_out : std_logic;
+	-- declare configuration specification
+	for ha1, ha2 : half_adder use entity WORK.half_adder(true_outputs);
+	begin
+	-- component instantiation
+	ha1: half_adder port map(in1 => input1, in2 => input2,
+	carry => carry1, sum => sum_int);
+	ha2: half_adder port map(in1 => sum_int, in2 => carry_in,
+	carry => carry2, sum => sum_out);
+	carry_out <= carry1 or carry2;
+	-- negate the internal sum and carry to the external port signals
+	-- since the XUP Virtex2 Pro demo board has active LOW LED outputs
+	-- DIP switch in UP position will produce a logic-’0’ value.
+	carry_out_neg <= not carry_out;
+	sum_out_neg <= not sum_out;
+	end structural;
+	
+(II) Setup Linux env to run Precision RTL synthesis tool
+>source /CMC/ENVIRONMENT/fpga_advantage.env
+As a check:
+>which precision 
+
+(III) Invoke Precision tool
+>precision
+
+(IV) Select new project
+Project name: Full_Adder_Test
+Folder: /nfs/home/m/ma_lauzi/Modelsim/FPGA_ADV
+Create Impl: Full_Adder_Test_i  (change entered to project name)
+
+(V)Specify VHDL files to synthesize
+Select 'Add input files' and add full_addr_negated_outputs.vhd 
+and also 
+
+(VI) add half_adder_regular_outputs.vhd 
+
+(VII) Specify FPGA device to use
+Setup design icon -> project settings -> Xilinx -> VIRTEX-II Pro as family XC2VP30ff896 as device and -7 as speed grade
+
+(VIII) Ready to compile (new icons)
+Select compile icon 
+
+(IX)Synthesize design
+Select synthesis icon
+
+(X) Save project
+..Full_Adder_Test_temp_1 dir will be copied into Full_Adder_Test_impl_1
+EDIF netlist file wil be generated
+
+==============PART 3 IMPLEMENTATION USING XILINX ISE=============
+(i) Technology Mapping or partitioning -> EDIF file converted to Xilinx Logic cells
+(ii)Routing - place logic cells from mapping into location in FPGA 
+(iii) Design placed & routed -> Config file is created (.bit) for Xilinx impact
+
+SETTING UP ENV FOR XILINX ISE
+>source /CMC/ENVIRONMENT/xilinx.env
+(1) mkdir 'Xilinx' in Modelsim dir for intermediate files (.bit)
+(2)Place & Route from ISE
+>ise &
+NOTE: '&' makes tool run in background and returns to prompt
+
+(3)Xilinx Project Navigator window appears
+File -> new project
+Specify full path: /nfs/home/m/marc/Modelsim/Xilinx/Full_Adder
+
+(4)Create User constraints File to match i/o ports to physical pins on FPGA
+Create full_adder_negated.ucf with .edf files with this inside:
+	CONFIG STEPPING="0";
+	NET carry_in LOC = AC11;
+	NET input1 LOC = AD11;
+	NET input2 LOC = AF8;
+	NET carry_out_neg LOC = AC4;
+	NET sum_out_neg LOC = AC3;
+Select 'Next' and will need to enter input file && user constraint File
+Specify full_adder_negated.edf  && full_adder_negated.ucf 
+Next
+(5)Specify Device - fill out form:
+	Device Family: Virtex2P
+	Device: xc2vp30
+	Package: ff896
+	Speed Grade: -7
+	Top_level Module Type: EDIF
+	Simulator: Other
+Next
+(6) Select Finish
+(7)New project window should change
+(8)select full_adder_negated.edf -> DB click on 'Implement Design'
+Progress will be displayed and saved in __projnev.log in Xilinx dir
+-> Consult log for diagnostics & other useful files in Xilinx dir
+*Could create shell script to execute command*
+Now, full_adder_negated.pcf lists i/o pins associated with design
+(9)Next step -> generate .bit file to download into FPGA board
+**MUST specify JTAG CLK as startup clock  (pg3 user's guide)
+Startup clock restrictions for devices with a cable also apply to adding bitstreams to ACE files ->only with startup clock settings of:
+'BOUNDARY SCAN (JTAG) CLOCK' are allowed
+
+GENERATE PROGRAMMING FILE
+-> select JTAG as startup clock in project Nav window
+->Select 'Process' from Project Navigator 
+->Properties
+->Startup options
+-Select JTAG CLOCK from FPGA value
+->Generate Programming file
+>ls -al *.bit		(should be approx 1.5MB)
+->File Save All & Exit
+
+===================XILINX TO PROG FLASH CARD W/ SYSTEM ACE FILE===========
+FPGA will config itself upon boot with flash card
+(1) Source env
+>source /CMC/ENVIRONMENT/xilinx.env
+(2)cd to Xilinx/Full_Adder/
+>cd Full_Adder/
+>impact &
+->Select OK
+Impact changed current working dir 
+(3)Impact Project Window -> create new project (default.ipf) -> OK
+(4)Prep system ACE file & Select Next
+(5) Select NOVICE as operating mode -> Next
+(6)System ACE CF Size = 128Mbits -> Next
+(7)Specify name (Full_Adder and location in Full_adder dir in Xilinx)
+(8)Assign config address and design name and check 'config address 0'
+(9)Finish 
+(10) OK
+(11)select full_adder_negated.bit file in ADD DEVICE window and OPEN
+(12)OK in 'Add Virtex-II Pro/Virtex4' window
+(13)Add another design file to address 0? -> No
+(14)Generate File (bottom left of Impact)
+(15)OK in ACE file Generation Option ->Save project & exit
+(16)Examin contents of Xilinx file 'rev0.ace' ->default ACE file name
+(17)Copy rev0.ace to flash card and plug it in FPGA
+If there is an ERROR check dip switch positions on FPGA
+(18)Flash card will be auto-mounted after icon on desktop selected (dbClick)
+To verify if /media/disk filesystem was mounted:
+>df
+copy to flash card with cp:
+>cp rev0.ace /media/disk
+>ls -al /media/disk
+*After copying System ACE file to flash drive, must flush file buffer or file size o CF card will be zero:
+>sync
+
+
+===================XILINX FPGA DEV BOARD===================
+- 4 user defined LED's
+- 4 DIP switches(SW_n 		0->UP and 1->DOWN
+- 5 pushbutton switches		0->pressed, 1->Normally
+					***LED's are ACTIVE-LOW***
+**Switched are not debounced -> one press could register as many**
+DEVICE		FPGA Pin
+LED_0		AC4
+LED_1		AC3
+LED_2		AA6
+LED_3		AA5
+---
+SW_0		AC11
+SW_1		AD11
+SW_2		AF8
+SW_3		AF9
+---
+PB_ENTER	AG5
+PB_UP		AH4
+PB_DOWN		AG3
+PB_LEFT		AH1
+PB_RIGHT	AH2
+
+Expansion LED & DIP i/o module
+-Debounced clock with 555 timer IC
+-8x DIP switches UP->Logic 0  
+-8x LEDs
+
+DEVICE		FPGA PIN
+---
+55timer		T4
+---
+SW_1		N5
+SW_2		L4
+SW_3		N2
+SW_4		R9
+SW_5		M3
+SW_6		P1
+SW_7		P7
+SW_8		N3
+LED1		P2
+LED2		R7
+LED3		P4
+LED4		T2
+LED5		R5
+LED6		R3
+LED7		V1
+LED8		T6
+
+Complete documentation schematics for XUP Virtex-II Pro board found at:
+../CMC/Xilinx_Boards/XUP_V2PRO_BOARD
+
+==============================PART 5: CLI=============================
+-changes can be made faster with scripts without GUI process (long)
+-UNIX nohup command allows background processes even if logout
+(1) Precision RTL from CLI
+-Setup Linux Environment (need ssh into Linux system)
+	>source /CMC/ENVIRONMENT/fpga_advantage_linux.env
+	>precision -shell
+-Use help command_name to list options
+-More generally, use TLC (tool command language) to specify commands
+	>precision -shell -file do_file.tcl	
+-Text file do_file.tcl contains:
+	# This is a comment line
+	# Ted Obuchowicz
+	# Feb. 21, 2007
+	# sample script file
+	# Precision Synthesis interprets the backslash (\)
+	# as a Tcl escape character
+	# so \\ means the command is continued on the next line
+	new_project -name Test_Script -folder \\
+	/nfs/home/t/ted/SYNOPSYS_2000/FPGA_ADV \\
+	-createimpl_name Test_Script_impl
+	add_input_file ../Code/3_bit_counter.vhd
+	setup_design -frequency=100
+	setup_design -manufacturer Xilinx -family {VIRTEX-II Pro} \\
+	-part 2VP30ff896 -speed 7
+	compile
+	synthesize
+	save_impl
+	save_project
+	exit
+-Generates EDIF netlist in directory specified by -createimpl_name
